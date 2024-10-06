@@ -2,13 +2,13 @@
 #include <string>
 #include <sstream>
 
-GUI::GUI() : window(sf::VideoMode(1000, 1000), "Monopoly"), game() {
+GUI::GUI() : window(sf::VideoMode(1200, 1200), "Monopoly"), game() {
     if (!backgroundTexture.loadFromFile("board.jpeg")) {
         std::cerr << "Could not load background texture!" << std::endl;
     }
     backgroundSprite.setTexture(backgroundTexture);
-    float targetWidth = 600.f;
-    float targetHeight = 600.f;
+    float targetWidth = 900.f;
+    float targetHeight = 900.f;
 
     float scaleX = targetWidth / backgroundTexture.getSize().x; // Width scale
     float scaleY = targetHeight / backgroundTexture.getSize().y; // Height scale
@@ -25,69 +25,48 @@ void GUI::setupPlayers() {
     while (!validInput) {
         // Display input prompt
         window.clear();
-        displayText("Enter number of players (2-8):");
+        displayText("How many players? (between 2 and 8):");
         std::cin >> numPlayers;
 
         if (numPlayers >= 2 && numPlayers <= 8) {
             validInput = true;
         } else {
             window.clear();
-            displayText("Invalid number of players. Please enter a valid number.");
+            displayText("Not allowed.");
         }
     }
 
     // Input for player names
     validInput = false;
-    while (!validInput) {
+    for (int i = 0; i < numPlayers; ++i) {
+        std::stringstream prompt;
+        prompt << "Name for player " << (i + 1) << ":";
         window.clear();
-        displayText("Want to use default names (Player1, Player2, ...)? (y/n)");
-        std::string input;
-        std::cin >> input;
-        if (input == "y" || input == "Y") {
-            for (int i = 0; i < numPlayers; ++i) {
-                std::string playerName = "Player" + std::to_string(i + 1);
-                game.addPlayer(Player(playerName));
-            }
-            validInput = true;
-        } else if (input == "n" || input == "N") {
-            for (int i = 0; i < numPlayers; ++i) {
-                std::stringstream prompt;
-                prompt << "Enter name for player " << (i + 1) << ":";
-                window.clear();
-                displayText(prompt.str());
-                std::string playerName;
-                std::cin >> playerName;
-                game.addPlayer(Player(playerName));
-            }
-            validInput = true;
-        } else {
-            window.clear();
-            displayText("Invalid input. Please enter 'y' or 'n'.");
-        }
+        displayText(prompt.str());
+        std::string playerName;
+        std::cin >> playerName;
+        game.addPlayer(Player(playerName));
     }
+    validInput = true;
 }
 
 void GUI::run() {
-    while (window.isOpen()) {
+    while (window.isOpen() && !game.isGameOver()) {
         // Main game loop
-        while (!game.isGameOver()) {
-            for (auto& player : game.getPlayers()) {
-                std::cout << "test" << std::endl;
-                displayText(player.getName() + "'s turn. Press Enter to roll the dice...");
-                std::cin.ignore();
-                game.playerTurn(player);
-                if (game.isGameOver()) {
-                    break; // Exit if game is over
-                }
-                handleEvents();
-                render();
+        for (auto& player : game.getPlayers()) {
+            handleEvents();
+            render();
+            std::cout << "test" << std::endl;
+            displayText(player.getName() + "'s turn. Press Enter to roll the dice...");
+            std::cin.ignore();
+            game.playerTurn(player);
+            if (game.isGameOver()) {
+                break; // Exit if game is over
             }
         }
-
-        // Determine and display the winner
-        Player winner = game.getWinner();
-        displayText(winner.getName() + " wins the game!");
     }
+    Player winner = game.getWinner();
+    std::cout << winner.getName() + " wins the game!" << std::endl;
 }
 
 void GUI::handleEvents() {
@@ -115,35 +94,29 @@ void GUI::drawBoard() {
 }
 
 void GUI::drawPlayers() {
-    sf::Font font;
-    if (!font.loadFromFile("Arial.ttf")) {
-        std::cerr << "Couldn't load font!" << std::endl;
-    }
-
-    // Positioning variables
-    float startY = 650; // Start drawing player info below the image
-    float startX = 10;   // Left margin
-    float spacingX = 100; // Space between player name columns
-
+    static const std::vector<sf::Color> playerColors = {
+        sf::Color::Cyan,
+        sf::Color::White,
+        sf::Color::Red,
+        sf::Color::Blue,
+        sf::Color::Yellow,
+        sf::Color::Green,
+        sf::Color::Black,
+        sf::Color::Magenta
+    };
     // Draw player names and their information
     for (size_t i = 0; i < game.getPlayers().size(); ++i) {
         Player& player = game.getPlayers()[i];
+        player.updatePositions(900, 75);
+        int positionX = player.positionX;
+        int positionY = player.positionY;
 
-        // Draw player name
-        std::string str = player.getName() + "\nMoney: " + std::to_string(player.money) + "\nPosition: " + 
-        std::to_string(player.position) + "\nTrains owned: " + std::to_string(player.trainsOwned)
-         + "\nOut of jail cards: " + std::to_string(player.outOfJailCard) + "\nBankrupt?: " + std::to_string(player.isBankrupt)
-         + "\nOwned properties:\n";
-        for(unsigned int i = 0; i < player.getOwnedProperties().size(); i++){
-            str += player.getOwnedProperties()[i]->getName() + "\n";
-        }
-        if(player.getOwnedProperties().size() == 0){
-            str += "None\n";
-        }
-        sf::Text playerNameText(str, font, 12);
-        playerNameText.setFillColor(sf::Color::White);
-        playerNameText.setPosition(startX + i * spacingX, startY);
-        window.draw(playerNameText);
+        // Create a colored circle for the player
+        sf::CircleShape playerBall(10); // Radius of 15 pixels
+        playerBall.setFillColor(playerColors[i]); // Use the primary color
+        playerBall.setPosition(positionX, positionY); // Set position based on calculated x and y
+
+        window.draw(playerBall); // Draw the player ball
     }
 }
 
@@ -177,7 +150,7 @@ void GUI::displayText(const std::string& message) {
     text.setCharacterSize(24);
     text.setFillColor(sf::Color::White);
     text.setString(message);
-    text.setPosition(10, 620); // Position it where you want to display it
+    text.setPosition(10, 10);
 
     // Display the message
     window.draw(text);

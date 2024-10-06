@@ -22,6 +22,9 @@ public:
     int outOfJailCard;
     bool isBankrupt;
     bool isJailed;
+    int positionX;
+    int positionY;
+    void updatePositions(int board, int space);
     bool removeGetOutOfJailCard();
     void pay(int amount);
 };
